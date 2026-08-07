@@ -67,15 +67,15 @@ jobs:
           gh api "repos/$REPO/commits/${{ steps.req.outputs.sha }}" --jq .sha > /dev/null \
             || { echo "::error::sha not found in $REPO"; exit 1; }
           echo "verified ${{ steps.req.outputs.sha }} in $REPO"
-          # A path-scoped source checks out only that directory. With path "."
-          # that means root-level files and no subdirectories, so skills/ never
-          # arrives and the plugin installs as an empty shell. Caught here
-          # because the install still succeeds - it just does nothing.
-          if jq -e --arg n "$NAME" '.plugins[] | select(.name==$n) | .source | has("path")' \
-               .claude-plugin/marketplace.json > /dev/null; then
-            echo "::error::$NAME uses a path-scoped source; whole-repo plugins want source: url"
-            exit 1
-          fi
+          # path "." checks out root-level files without recursing, so skills/
+          # never arrives and the plugin installs as a shell that does nothing.
+          # A real subdirectory recurses and is fine - preferred, even, since a
+          # subtree without a package.json avoids a full npm install per version.
+          PATH_VAL=$(jq -r --arg n "$NAME" '.plugins[] | select(.name==$n) | .source.path // ""' \
+                       .claude-plugin/marketplace.json)
+          case "$PATH_VAL" in
+            .|./) echo "::error::$NAME pins path \"$PATH_VAL\", which checks out root files without recursing"; exit 1 ;;
+          esac
 
       - name: Repin
         id: pin

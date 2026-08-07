@@ -25,10 +25,14 @@ model-generated. Command installs separately: `pipx install chsum`.
 Each plugin lives in its own repository. This one holds only
 `.claude-plugin/marketplace.json`, which points at them by URL and commit sha.
 
-Sources are whole-repo (`source: "url"`). A path-scoped `git-subdir` source with
-`path: "."` checks out root-level files and no subdirectories, so `skills/` never
-arrives and the plugin installs as a working shell that does nothing. The pin
-workflow now rejects a path-scoped source for that reason.
+Prefer pinning a subdirectory (`git-subdir` with a real `path`) over the whole
+repository. The installer runs `npm install` in the plugin directory, so a repo
+root containing `package.json` costs ~175MB of dev dependencies per installed
+version; a subtree holding just the manifest and skill costs nothing.
+
+`path: "."` is the one shape to avoid — it checks out root-level files without
+recursing, so `skills/` never arrives and the plugin installs as a shell that
+does nothing. The pin workflow rejects it.
 
 Pinning is deliberate: a release in a tool repo doesn't reach anyone until the sha
 here is bumped. One extra commit per release, in exchange for controlling exactly
