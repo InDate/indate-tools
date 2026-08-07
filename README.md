@@ -50,6 +50,11 @@ actually exist in the tool's repository, the plugin must already be listed here,
 and the version must be semver. The payload arrives from another repository, so
 none of it is taken on trust.
 
+It also refuses a sha that moves under an unchanged version. Installed plugins
+are cached per version, so that pin would merge cleanly and reach nobody — the
+existing installs see the same version and never refetch. Bump the version and
+re-tag instead.
+
 Repinning by hand, if a dispatch is ever missed:
 
 ```sh

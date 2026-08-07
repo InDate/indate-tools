@@ -72,10 +72,21 @@ jobs:
         id: pin
         run: |
           NAME='${{ steps.req.outputs.name }}'
+          NEW_VERSION='${{ steps.req.outputs.version }}'
           OLD=$(jq -r --arg n "$NAME" '.plugins[] | select(.name==$n) | .source.sha' .claude-plugin/marketplace.json)
+          OLD_VERSION=$(jq -r --arg n "$NAME" '.plugins[] | select(.name==$n) | .version // ""' .claude-plugin/marketplace.json)
           if [ "$OLD" = "${{ steps.req.outputs.sha }}" ]; then
             echo "already pinned to this sha, nothing to do"
             echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Installed plugins are cached per version, so a sha that moves under an
+          # unchanged version reaches nobody: existing installs see no new version
+          # and never refetch. Refuse it rather than merge a pin that silently
+          # does nothing.
+          if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+            echo "::error::$NAME is already at version $NEW_VERSION with a different sha."
+            echo "::error::Bump the version and re-tag - a sha-only repin does not reach installed users."
+            exit 1
           fi
           jq --indent 2 \
             --arg n "$NAME" --arg v '${{ steps.req.outputs.version }}' \
