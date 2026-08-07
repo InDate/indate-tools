@@ -13,10 +13,8 @@
       "version": "0.9.0",
       "category": "development",
       "source": {
-        "source": "git-subdir",
+        "source": "url",
         "url": "https://github.com/InDate/devharness.git",
-        "path": ".",
-        "ref": "v0.9.0",
         "sha": "cd24e269726f3bccf71fb8a698a1b32cd543bcbe"
       },
       "homepage": "https://github.com/InDate/devharness"
@@ -27,10 +25,8 @@
       "version": "1.0.0",
       "category": "productivity",
       "source": {
-        "source": "git-subdir",
+        "source": "url",
         "url": "https://github.com/InDate/chsum.git",
-        "path": ".",
-        "ref": "main",
         "sha": "22a8ddcf5e88c031ec62cb4a51de69f2f4002958"
       },
       "homepage": "https://github.com/InDate/chsum"

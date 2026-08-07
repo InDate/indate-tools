@@ -67,6 +67,15 @@ jobs:
           gh api "repos/$REPO/commits/${{ steps.req.outputs.sha }}" --jq .sha > /dev/null \
             || { echo "::error::sha not found in $REPO"; exit 1; }
           echo "verified ${{ steps.req.outputs.sha }} in $REPO"
+          # A path-scoped source checks out only that directory. With path "."
+          # that means root-level files and no subdirectories, so skills/ never
+          # arrives and the plugin installs as an empty shell. Caught here
+          # because the install still succeeds - it just does nothing.
+          if jq -e --arg n "$NAME" '.plugins[] | select(.name==$n) | .source | has("path")' \
+               .claude-plugin/marketplace.json > /dev/null; then
+            echo "::error::$NAME uses a path-scoped source; whole-repo plugins want source: url"
+            exit 1
+          fi
 
       - name: Repin
         id: pin
@@ -90,8 +99,8 @@ jobs:
           fi
           jq --indent 2 \
             --arg n "$NAME" --arg v '${{ steps.req.outputs.version }}' \
-            --arg s '${{ steps.req.outputs.sha }}' --arg r '${{ steps.req.outputs.ref }}' \
-            '(.plugins[] | select(.name==$n)) |= (.version = $v | .source.sha = $s | .source.ref = $r)' \
+            --arg s '${{ steps.req.outputs.sha }}' \
+            '(.plugins[] | select(.name==$n)) |= (.version = $v | .source.sha = $s)' \
             .claude-plugin/marketplace.json > tmp.json
           mv tmp.json .claude-plugin/marketplace.json
           jq empty .claude-plugin/marketplace.json

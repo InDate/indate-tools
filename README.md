@@ -25,6 +25,11 @@ model-generated. Command installs separately: `pipx install chsum`.
 Each plugin lives in its own repository. This one holds only
 `.claude-plugin/marketplace.json`, which points at them by URL and commit sha.
 
+Sources are whole-repo (`source: "url"`). A path-scoped `git-subdir` source with
+`path: "."` checks out root-level files and no subdirectories, so `skills/` never
+arrives and the plugin installs as a working shell that does nothing. The pin
+workflow now rejects a path-scoped source for that reason.
+
 Pinning is deliberate: a release in a tool repo doesn't reach anyone until the sha
 here is bumped. One extra commit per release, in exchange for controlling exactly
 what ships and being able to roll it back.
