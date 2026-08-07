@@ -1,0 +1,37 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "indate-tools",
+  "description": "Tools for working with Claude Code: a runtime debugging harness, and deterministic recall of past sessions.",
+  "owner": {
+    "name": "InDate",
+    "url": "https://github.com/InDate"
+  },
+  "plugins": [
+    {
+      "name": "devharness",
+      "description": "Run and debug a live app from inside Claude Code: breakpoints and variable inspection in Chrome and Node.js, managed dev servers, and replayable call history so setup is never re-driven by hand.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/InDate/devharness.git",
+        "path": ".",
+        "ref": "main",
+        "sha": "e1881d031fc36c7bcbcb4533a825f559f9aff528"
+      },
+      "homepage": "https://github.com/InDate/devharness"
+    },
+    {
+      "name": "chsum",
+      "description": "Recover past Claude Code sessions as verbatim context: list a project's sessions, digest one into prompts, files changed, commands run and where it left off, or drill into a subagent's own work. Nothing is model-generated.",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/InDate/chsum.git",
+        "path": ".",
+        "ref": "main",
+        "sha": "22a8ddcf5e88c031ec62cb4a51de69f2f4002958"
+      },
+      "homepage": "https://github.com/InDate/chsum"
+    }
+  ]
+}
