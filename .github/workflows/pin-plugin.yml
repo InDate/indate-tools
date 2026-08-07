@@ -105,12 +105,23 @@ jobs:
           ${{ steps.pin.outputs.old }} -> $SHA
           Released as ${{ steps.req.outputs.ref }}."
           git push -u origin "$BRANCH" --force
-          gh pr create --fill --head "$BRANCH" --base main \
-            --title "Pin $NAME $VERSION" \
-            --body "Pins \`$NAME\` to \`${SHA:0:8}\` (\`${{ steps.req.outputs.ref }}\`).
+          BODY="Pins \`$NAME\` to \`${SHA:0:8}\` (\`${{ steps.req.outputs.ref }}\`).
 
           Previous pin: \`${{ steps.pin.outputs.old }}\`
 
           Merging this is what makes the release reach anyone who has installed
-          \`$NAME\` from this marketplace." \
-            || gh pr edit "$BRANCH" --title "Pin $NAME $VERSION"
+          \`$NAME\` from this marketplace."
+
+          if gh pr create --head "$BRANCH" --base main \
+               --title "Pin $NAME $VERSION" --body "$BODY"; then
+            exit 0
+          fi
+          # Already open for this branch is fine — the force-push above updated it.
+          if gh pr view "$BRANCH" --json number --jq .number; then
+            echo "existing PR updated"; exit 0
+          fi
+          # Anything else (most often: Actions not permitted to create PRs in this
+          # repo's settings) leaves the branch pushed and ready to open by hand.
+          echo "::error::could not open a PR. Branch $BRANCH is pushed — open it at" \
+               "https://github.com/${GITHUB_REPOSITORY}/compare/main...$BRANCH"
+          exit 1
