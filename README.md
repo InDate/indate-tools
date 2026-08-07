@@ -28,3 +28,38 @@ Each plugin lives in its own repository. This one holds only
 Pinning is deliberate: a release in a tool repo doesn't reach anyone until the sha
 here is bumped. One extra commit per release, in exchange for controlling exactly
 what ships and being able to roll it back.
+
+## Releasing
+
+Tagging a tool repo opens a pull request here.
+
+```
+tag v0.8.1 in InDate/devharness
+  → notify-marketplace.yml dispatches to this repo
+  → pin-plugin.yml validates, repins marketplace.json, opens a PR
+  → you merge; the release reaches installed users
+```
+
+The PR step is the point. Tagging publishes to npm or PyPI, which only affects
+people who go and install it. Merging the pin is what pushes an update at
+everyone who already has the plugin — a separate decision, so it gets a separate
+approval.
+
+Validation before the PR opens: the sha must be 40 hex characters and must
+actually exist in the tool's repository, the plugin must already be listed here,
+and the version must be semver. The payload arrives from another repository, so
+none of it is taken on trust.
+
+Repinning by hand, if a dispatch is ever missed:
+
+```sh
+gh workflow run pin-plugin.yml -R InDate/indate-tools \
+  -f name=devharness -f version=0.8.1 -f ref=v0.8.1 -f sha=<40-char-sha>
+```
+
+### One-time setup
+
+Each tool repo needs a `MARKETPLACE_DISPATCH_TOKEN` secret: a fine-grained PAT
+scoped to `InDate/indate-tools` with **contents: write** and
+**pull requests: write**. A repo's own `GITHUB_TOKEN` can't reach another
+repository, which is why this exists.

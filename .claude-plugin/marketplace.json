@@ -10,6 +10,7 @@
     {
       "name": "devharness",
       "description": "Run and debug a live app from inside Claude Code: breakpoints and variable inspection in Chrome and Node.js, managed dev servers, and replayable call history so setup is never re-driven by hand.",
+      "version": "0.8.0",
       "category": "development",
       "source": {
         "source": "git-subdir",
@@ -23,6 +24,7 @@
     {
       "name": "chsum",
       "description": "Recover past Claude Code sessions as verbatim context: list a project's sessions, digest one into prompts, files changed, commands run and where it left off, or drill into a subagent's own work. Nothing is model-generated.",
+      "version": "1.0.0",
       "category": "productivity",
       "source": {
         "source": "git-subdir",

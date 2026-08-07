@@ -1,0 +1,116 @@
+name: Pin plugin release
+
+# Fired by a tool repo's `notify-marketplace` workflow when it tags a release.
+# Opens a PR rather than pushing: the pin is what actually reaches users, so it
+# stays a decision someone makes, not a side effect of tagging.
+on:
+  repository_dispatch:
+    types: [plugin-release]
+  workflow_dispatch:
+    inputs:
+      name:
+        description: Plugin name as it appears in marketplace.json
+        required: true
+      version:
+        description: Version, without the leading v
+        required: true
+      sha:
+        description: Full 40-character commit sha to pin
+        required: true
+      ref:
+        description: Tag or branch the sha came from
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read request
+        id: req
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            NAME='${{ inputs.name }}'; VERSION='${{ inputs.version }}'
+            SHA='${{ inputs.sha }}';  REF='${{ inputs.ref }}'
+          else
+            NAME='${{ github.event.client_payload.name }}'
+            VERSION='${{ github.event.client_payload.version }}'
+            SHA='${{ github.event.client_payload.sha }}'
+            REF='${{ github.event.client_payload.ref }}'
+          fi
+          for v in NAME VERSION SHA REF; do
+            [ -n "${!v}" ] || { echo "::error::$v is empty"; exit 1; }
+          done
+          # The dispatch payload comes from another repository. Treat it as input,
+          # not as fact: a malformed sha would otherwise be committed as a pin
+          # that resolves to nothing at install time.
+          echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::sha is not a 40-char hex: $SHA"; exit 1; }
+          echo "$NAME" | grep -Eq '^[a-z0-9][a-z0-9-]*$' || { echo "::error::bad plugin name: $NAME"; exit 1; }
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+' || { echo "::error::not semver: $VERSION"; exit 1; }
+          {
+            echo "name=$NAME"; echo "version=$VERSION"; echo "sha=$SHA"; echo "ref=$REF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify the plugin and commit exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NAME='${{ steps.req.outputs.name }}'
+          URL=$(jq -r --arg n "$NAME" '.plugins[] | select(.name==$n) | .source.url' .claude-plugin/marketplace.json)
+          [ -n "$URL" ] || { echo "::error::$NAME is not in marketplace.json"; exit 1; }
+          REPO=$(echo "$URL" | sed -E 's#https://github.com/([^/]+/[^/]+)\.git#\1#')
+          gh api "repos/$REPO/commits/${{ steps.req.outputs.sha }}" --jq .sha > /dev/null \
+            || { echo "::error::sha not found in $REPO"; exit 1; }
+          echo "verified ${{ steps.req.outputs.sha }} in $REPO"
+
+      - name: Repin
+        id: pin
+        run: |
+          NAME='${{ steps.req.outputs.name }}'
+          OLD=$(jq -r --arg n "$NAME" '.plugins[] | select(.name==$n) | .source.sha' .claude-plugin/marketplace.json)
+          if [ "$OLD" = "${{ steps.req.outputs.sha }}" ]; then
+            echo "already pinned to this sha, nothing to do"
+            echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          jq --indent 2 \
+            --arg n "$NAME" --arg v '${{ steps.req.outputs.version }}' \
+            --arg s '${{ steps.req.outputs.sha }}' --arg r '${{ steps.req.outputs.ref }}' \
+            '(.plugins[] | select(.name==$n)) |= (.version = $v | .source.sha = $s | .source.ref = $r)' \
+            .claude-plugin/marketplace.json > tmp.json
+          mv tmp.json .claude-plugin/marketplace.json
+          jq empty .claude-plugin/marketplace.json
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+
+      - name: Open PR
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NAME='${{ steps.req.outputs.name }}'
+          VERSION='${{ steps.req.outputs.version }}'
+          SHA='${{ steps.req.outputs.sha }}'
+          BRANCH="pin/$NAME-$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add .claude-plugin/marketplace.json
+          git commit -m "Pin $NAME $VERSION
+
+          ${{ steps.pin.outputs.old }} -> $SHA
+          Released as ${{ steps.req.outputs.ref }}."
+          git push -u origin "$BRANCH" --force
+          gh pr create --fill --head "$BRANCH" --base main \
+            --title "Pin $NAME $VERSION" \
+            --body "Pins \`$NAME\` to \`${SHA:0:8}\` (\`${{ steps.req.outputs.ref }}\`).
+
+          Previous pin: \`${{ steps.pin.outputs.old }}\`
+
+          Merging this is what makes the release reach anyone who has installed
+          \`$NAME\` from this marketplace." \
+            || gh pr edit "$BRANCH" --title "Pin $NAME $VERSION"
