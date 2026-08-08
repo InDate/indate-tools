@@ -23,12 +23,12 @@
     {
       "name": "chsum",
       "description": "Recover past Claude Code sessions as verbatim context: list a project's sessions, digest one into prompts, files changed, commands run and where it left off, or drill into a subagent's own work. Nothing is model-generated.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "category": "productivity",
       "source": {
         "source": "url",
         "url": "https://github.com/InDate/chsum.git",
-        "sha": "f0771e7da24ace4eca58a25e0d7220ebb9055a1b"
+        "sha": "b3bf0e32beb8a2259a9b8ae92447264e3c90f9b2"
       },
       "homepage": "https://github.com/InDate/chsum"
     }
