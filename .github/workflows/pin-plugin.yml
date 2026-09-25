@@ -77,6 +77,43 @@ jobs:
             .|./) echo "::error::$NAME pins path \"$PATH_VAL\", which checks out root files without recursing"; exit 1 ;;
           esac
 
+      # A plugin whose .mcp.json runs `npx -y <pkg>@<version>` fails to start with
+      # ETARGET until npm serves that version, and `npm publish` returns minutes
+      # before it does. Opening the PR only once every pinned package resolves
+      # holds the merge behind the registry.
+      - name: Wait for pinned npm packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NAME='${{ steps.req.outputs.name }}'
+          SHA='${{ steps.req.outputs.sha }}'
+          URL=$(jq -r --arg n "$NAME" '.plugins[] | select(.name==$n) | .source.url' .claude-plugin/marketplace.json)
+          REPO=$(echo "$URL" | sed -E 's#https://github.com/([^/]+/[^/]+)\.git#\1#')
+          SUBDIR=$(jq -r --arg n "$NAME" '.plugins[] | select(.name==$n) | .source.path // ""' \
+                     .claude-plugin/marketplace.json)
+          FILE="${SUBDIR:+$SUBDIR/}.mcp.json"
+          if ! CONTENT=$(gh api "repos/$REPO/contents/$FILE?ref=$SHA" --jq .content 2>err.txt); then
+            if grep -q 'HTTP 404' err.txt; then
+              echo "no $FILE at ${SHA:0:8}, no npm packages to wait for"; exit 0
+            fi
+            cat err.txt; exit 1
+          fi
+          SPECS=$(echo "$CONTENT" | base64 -d \
+                  | jq -r '.mcpServers[] | select(.command=="npx") | .args[]' \
+                  | grep -E '^@?[^@[:space:]]+@[0-9]+\.[0-9]+\.[0-9]+' || true)
+          [ -n "$SPECS" ] || { echo "$FILE pins no npm package versions"; exit 0; }
+          for SPEC in $SPECS; do
+            DEADLINE=$(( $(date +%s) + 900 ))
+            until [ -n "$(npm view "$SPEC" version --prefer-online 2>/dev/null)" ]; do
+              if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+                echo "::error::$SPEC is not on npm after 15 minutes; a pin to ${SHA:0:8} would fail to start"
+                exit 1
+              fi
+              echo "waiting for $SPEC on npm"; sleep 15
+            done
+            echo "$SPEC resolves on npm"
+          done
+
       - name: Repin
         id: pin
         run: |
