@@ -13,17 +13,21 @@ Claude Code plugin marketplace.
 **[devharness](https://github.com/InDate/devharness)** — run and debug a live app
 from inside Claude Code. Breakpoints and variable inspection in Chrome and
 Node.js, managed dev servers, and replayable call history so setup is never
-re-driven by hand. The MCP server installs separately: `npx devharness@latest`.
+re-driven by hand. The plugin starts its MCP server with `npx`, at the version
+pinned beside it, so it needs Node.js and nothing installed by hand.
 
-**[chsum](https://github.com/InDate/chsum)** — recover past Claude Code sessions
-as verbatim context. Lists a project's sessions, digests one into your prompts in
-order, files changed, commands run, and where it left off. Nothing is
-model-generated. Command installs separately: `pipx install chsum`.
+**[chsum](https://github.com/InDate/chsum)** — recover past Claude Code and Codex
+CLI sessions as verbatim context. Lists a project's sessions, digests one into
+your prompts in order, files changed, commands run, and where it left off.
+Nothing is model-generated. The plugin carries the code and needs Python 3.10+;
+its hooks run it with nothing on `PATH`. A `chsum` command of your own is
+optional — see chsum's README.
 
 ## How this repo works
 
-Each plugin lives in its own repository. This one holds only
-`.claude-plugin/marketplace.json`, which points at them by URL and commit sha.
+Each plugin lives in its own repository. This one holds
+`.claude-plugin/marketplace.json`, which points at them by URL and commit sha,
+and `.github/workflows/pin-plugin.yml`, which updates those pins.
 
 Prefer pinning a subdirectory (`git-subdir` with a real `path`) over the whole
 repository. The installer runs `npm install` in the plugin directory, so a repo
@@ -58,6 +62,12 @@ Validation before the PR opens: the sha must be 40 hex characters and must
 actually exist in the tool's repository, the plugin must already be listed here,
 and the version must be semver. The payload arrives from another repository, so
 none of it is taken on trust.
+
+The PR then waits for npm. A plugin whose `.mcp.json` runs `npx -y <pkg>@<version>`
+fails to start until npm serves that version, and `npm publish` returns minutes
+before it does. The workflow reads `.mcp.json` at the pinned sha and opens the PR
+only once every pinned package resolves; after 15 minutes it fails instead. A
+plugin with no `.mcp.json` skips the wait.
 
 It also refuses a sha that moves under an unchanged version. Installed plugins
 are cached per version, so that pin would merge cleanly and reach nobody — the
