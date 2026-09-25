@@ -31,8 +31,9 @@ and `.github/workflows/pin-plugin.yml`, which updates those pins.
 
 Prefer pinning a subdirectory (`git-subdir` with a real `path`) over the whole
 repository. The installer runs `npm install` in the plugin directory, so a repo
-root containing `package.json` costs ~175MB of dev dependencies per installed
-version; a subtree holding just the manifest and skill costs nothing.
+root containing `package.json` costs ~175MB of `node_modules` per installed
+version — devharness's root measured 175MB, 90MB of it dev dependencies; a
+subtree holding just the manifest and skill costs nothing.
 
 `path: "."` is the one shape to avoid — it checks out root-level files without
 recursing, so `skills/` never arrives and the plugin installs as a shell that
