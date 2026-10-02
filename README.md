@@ -50,7 +50,8 @@ Tagging a tool repo opens a pull request here.
 ```
 tag v0.8.1 in InDate/devharness
   → notify-marketplace.yml dispatches to this repo
-  → pin-plugin.yml validates, repins marketplace.json, opens a PR
+  → pin-plugin.yml validates, repins marketplace.json, opens a PR once npm serves it
+    (or reconcile-pins.yml requests it again every 10 minutes until npm does)
   → you merge; the release reaches installed users
 ```
 
@@ -66,16 +67,25 @@ none of it is taken on trust.
 
 The PR then waits for npm. A plugin whose `.mcp.json` runs `npx -y <pkg>@<version>`
 fails to start until npm serves that version, and `npm publish` returns minutes
-before it does. The workflow reads `.mcp.json` at the pinned sha and opens the PR
-only once every pinned package resolves; after 30 minutes it fails instead. A
-plugin with no `.mcp.json` skips the wait.
+before it does — 16 minutes for devharness 0.12.0. The workflow reads `.mcp.json`
+at the pinned sha and opens the PR only once every pinned package resolves. A
+package still missing ends the run without a PR. A plugin with no `.mcp.json`
+skips the check.
+
+npm emits nothing when a version becomes installable, so
+`.github/workflows/reconcile-pins.yml` runs every 10 minutes, compares each
+plugin's newest `vX.Y.Z` tag with its pin, and requests the pin again through
+`pin-plugin.yml`. The PR therefore opens within about 10 minutes of npm serving
+the version, and a dispatch that never arrived is recovered the same way. A pin
+branch that already has a PR, open or closed, is left alone, so closing a pin PR
+turns that release down for good.
 
 It also refuses a sha that moves under an unchanged version. Installed plugins
 are cached per version, so that pin would merge cleanly and reach nobody — the
 existing installs see the same version and never refetch. Bump the version and
 re-tag instead.
 
-Repinning by hand, if a dispatch is ever missed:
+Repinning by hand, to pin something other than the newest tag:
 
 ```sh
 gh workflow run pin-plugin.yml -R InDate/indate-tools \

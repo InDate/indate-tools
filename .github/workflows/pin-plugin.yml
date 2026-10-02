@@ -25,6 +25,12 @@ permissions:
   contents: write
   pull-requests: write
 
+# A tag's dispatch and a scheduled reconcile can request the same pin together;
+# two runs force-pushing one branch race to the same PR.
+concurrency:
+  group: pin-${{ inputs.name || github.event.client_payload.name }}
+  cancel-in-progress: false
+
 jobs:
   pin:
     runs-on: ubuntu-latest
@@ -79,10 +85,12 @@ jobs:
 
       # A plugin whose .mcp.json runs `npx -y <pkg>@<version>` fails to start with
       # ETARGET until npm serves that version, and `npm publish` returns minutes
-      # before it does. Opening the PR only once every pinned package resolves
-      # holds the merge behind the registry. The gap ran 16 minutes for
-      # devharness 0.12.0, so the wait holds 30.
-      - name: Wait for pinned npm packages
+      # before it does (16 for devharness 0.12.0). Opening the PR only once every
+      # pinned package resolves holds the merge behind the registry. An
+      # unresolved package ends the run without a PR, and reconcile-pins.yml
+      # requests the pin again on its next scheduled run.
+      - name: Check pinned npm packages
+        id: npm
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -95,28 +103,26 @@ jobs:
           FILE="${SUBDIR:+$SUBDIR/}.mcp.json"
           if ! CONTENT=$(gh api "repos/$REPO/contents/$FILE?ref=$SHA" --jq .content 2>err.txt); then
             if grep -q 'HTTP 404' err.txt; then
-              echo "no $FILE at ${SHA:0:8}, no npm packages to wait for"; exit 0
+              echo "no $FILE at ${SHA:0:8}, no npm packages to check"
+              echo "ready=true" >> "$GITHUB_OUTPUT"; exit 0
             fi
             cat err.txt; exit 1
           fi
           SPECS=$(echo "$CONTENT" | base64 -d \
                   | jq -r '.mcpServers[] | select(.command=="npx") | .args[]' \
                   | grep -E '^@?[^@[:space:]]+@[0-9]+\.[0-9]+\.[0-9]+' || true)
-          [ -n "$SPECS" ] || { echo "$FILE pins no npm package versions"; exit 0; }
           for SPEC in $SPECS; do
-            DEADLINE=$(( $(date +%s) + 1800 ))
-            until [ -n "$(npm view "$SPEC" version --prefer-online 2>/dev/null)" ]; do
-              if [ "$(date +%s)" -ge "$DEADLINE" ]; then
-                echo "::error::$SPEC is not on npm after 30 minutes; a pin to ${SHA:0:8} would fail to start"
-                exit 1
-              fi
-              echo "waiting for $SPEC on npm"; sleep 15
-            done
+            if [ -z "$(npm view "$SPEC" version --prefer-online 2>/dev/null)" ]; then
+              echo "::notice::$SPEC is not on npm yet; no PR opened, reconcile-pins.yml requests the pin again"
+              echo "ready=false" >> "$GITHUB_OUTPUT"; exit 0
+            fi
             echo "$SPEC resolves on npm"
           done
+          echo "ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Repin
         id: pin
+        if: steps.npm.outputs.ready == 'true'
         run: |
           NAME='${{ steps.req.outputs.name }}'
           NEW_VERSION='${{ steps.req.outputs.version }}'
