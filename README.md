@@ -67,7 +67,7 @@ none of it is taken on trust.
 The PR then waits for npm. A plugin whose `.mcp.json` runs `npx -y <pkg>@<version>`
 fails to start until npm serves that version, and `npm publish` returns minutes
 before it does. The workflow reads `.mcp.json` at the pinned sha and opens the PR
-only once every pinned package resolves; after 15 minutes it fails instead. A
+only once every pinned package resolves; after 30 minutes it fails instead. A
 plugin with no `.mcp.json` skips the wait.
 
 It also refuses a sha that moves under an unchanged version. Installed plugins
