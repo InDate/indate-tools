@@ -23,12 +23,12 @@
     {
       "name": "chsum",
       "description": "Recover past Claude Code and Codex CLI sessions as verbatim context: list a project's sessions, digest one into prompts, files changed, commands run and where it left off, or drill into a subagent's own work. Nothing is model-generated.",
-      "version": "3.0.3",
+      "version": "3.0.4",
       "category": "productivity",
       "source": {
         "source": "url",
         "url": "https://github.com/InDate/chsum.git",
-        "sha": "67b6674546a7c3e9ae30a150119b08cdebe91f96"
+        "sha": "a0550460398c56669eac4eb00d23e2172d1cbaea"
       },
       "homepage": "https://github.com/InDate/chsum"
     }
