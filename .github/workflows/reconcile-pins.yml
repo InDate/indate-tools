@@ -1,13 +1,12 @@
 name: Reconcile pins
 
-# npm processes a publish after `npm publish` returns and emits nothing when the
-# version becomes installable, so a pin requested at tag time can find the
-# package missing. pin-plugin.yml then ends without a PR. This run compares each
-# plugin's newest release tag with its pin and requests the pin again, which
-# also recovers a dispatch that never arrived.
+# pin-plugin.yml waits for npm itself, so a tag's dispatch is the pin. This run
+# compares each plugin's newest release tag with its pin and requests the pin
+# again, which recovers a dispatch that never arrived or a pin run that timed
+# out. Once a day bounds that recovery at a day; workflow_dispatch runs it now.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
