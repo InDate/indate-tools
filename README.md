@@ -50,8 +50,7 @@ Tagging a tool repo opens a pull request here.
 ```
 tag v0.8.1 in InDate/devharness
   → notify-marketplace.yml dispatches to this repo
-  → pin-plugin.yml validates, repins marketplace.json, opens a PR once npm serves it
-    (or reconcile-pins.yml requests it again every 10 minutes until npm does)
+  → pin-plugin.yml validates, waits for npm to serve it, repins marketplace.json, opens a PR
   → you merge; the release reaches installed users
 ```
 
@@ -67,16 +66,16 @@ none of it is taken on trust.
 
 The PR then waits for npm. A plugin whose `.mcp.json` runs `npx -y <pkg>@<version>`
 fails to start until npm serves that version, and `npm publish` returns minutes
-before it does — 16 minutes for devharness 0.12.0. The workflow reads `.mcp.json`
-at the pinned sha and opens the PR only once every pinned package resolves. A
-package still missing ends the run without a PR. A plugin with no `.mcp.json`
-skips the check.
+before it does — 16 minutes for devharness 0.12.0, 3 for 0.12.1. The workflow
+reads `.mcp.json` at the pinned sha and reads npm every 30 seconds until every
+pinned package resolves, so the PR opens within 30 seconds of npm serving the
+version. A package still missing after 30 minutes fails the run with no PR. A
+plugin with no `.mcp.json` skips the wait.
 
-npm emits nothing when a version becomes installable, so
-`.github/workflows/reconcile-pins.yml` runs every 10 minutes, compares each
-plugin's newest `vX.Y.Z` tag with its pin, and requests the pin again through
-`pin-plugin.yml`. The PR therefore opens within about 10 minutes of npm serving
-the version, and a dispatch that never arrived is recovered the same way. A pin
+`.github/workflows/reconcile-pins.yml` runs once a day, compares each plugin's
+newest `vX.Y.Z` tag with its pin, and requests the pin again through
+`pin-plugin.yml`. That recovers a dispatch that never arrived and a pin run that
+timed out, within a day; `gh workflow run reconcile-pins.yml` runs it now. A pin
 branch that already has a PR, open or closed, is left alone, so closing a pin PR
 turns that release down for good.
 
