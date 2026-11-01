@@ -10,13 +10,13 @@
     {
       "name": "devharness",
       "description": "Run and debug a live app from inside Claude Code: breakpoints and variable inspection in Chrome and Node.js, managed dev servers, and replayable call history so setup is never re-driven by hand.",
-      "version": "0.17.9",
+      "version": "0.17.11",
       "category": "development",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/InDate/devharness.git",
         "path": "plugin",
-        "sha": "73516218cc362cd2f0672ca51d734abd76e75ae8"
+        "sha": "76803ca07a18e714b35eb1ddfad1992d680c2f57"
       },
       "homepage": "https://github.com/InDate/devharness"
     },
